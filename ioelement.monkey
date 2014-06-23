@@ -115,6 +115,14 @@ Class IOElement Implements InputElement, OutputElement
 	Const ERROR_INVALID_HEADER:Int			= 5
 	Const ERROR_UNSUPPORTED_VERSION:Int		= 6
 	
+	#Rem
+		This is the lowest possible error-code position.
+		Each 'IOElement' class has the ability to redefine this if for some reason that's neccessary.
+		It's best to just offset based on this value (Defined by your super-class).
+	#End
+	
+	Const CUSTOM_ERROR_LOCATION:Int = 9
+	
 	' I/O states (I32, but possibly limited by I8 (See file instructions)) (1 through 8 are reserved):
 	Const PREVIOUS_STATE:Int	= 0
 	Const STATE_NONE:Int		= 1
@@ -1321,7 +1329,9 @@ Class StandardIOModel<IOElementType> Extends IOElementType
 	
 	Method WriteHeader:Bool(S:Stream)
 		' Check for errors:
-		If (S = Null) Then Return False
+		If (S = Null) Then
+			Return False
+		Endif
 		
 		Write_FormatVersion(S, StandardIOModel_FileVersion)
 		WriteOptString(S, StandardIOModel_FileFormatText)
@@ -1332,7 +1342,12 @@ Class StandardIOModel<IOElementType> Extends IOElementType
 	End
 	
 	Method ReadBody:Bool(S:Stream, ErrorType:IntObject=Null, State:IntObject=Null)
-		If (S = Null Or S.Eof()) Then Return False
+		' Check for errors:
+		If (S = Null Or S.Eof()) Then
+			Return False
+		Endif
+		
+		' Nothing so far.
 		
 		' Return the default response.
 		Return True
@@ -1340,7 +1355,11 @@ Class StandardIOModel<IOElementType> Extends IOElementType
 	
 	Method WriteBody:Bool(S:Stream)
 		' Check for errors:
-		If (S = Null) Then Return False
+		If (S = Null) Then
+			Return False
+		Endif
+		
+		' Nothing so far.
 		
 		' Return the default response.
 		Return True
