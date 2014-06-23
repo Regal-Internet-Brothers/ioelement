@@ -94,7 +94,7 @@ Class IOElement Implements InputElement, OutputElement
 	Const ZERO:Int		= 0
 	Const ONE:Int		= 1
 	
-	' File instructions (0-255) (1 through 8 are reserved):
+	' File instructions (0-255) (1 through 'CUSTOM_INSTRUCTION_LOCATION-1' are reserved):
 	Const FILE_INSTRUCTION_BEGINFILE:Int			= 1
 	Const FILE_INSTRUCTION_ENDFILE:Int				= 2
 	Const FILE_INSTRUCTION_BEGINHEADER:Int			= 3
@@ -106,24 +106,33 @@ Class IOElement Implements InputElement, OutputElement
 	Const FILE_INSTRUCTION_JUMP:Int					= 7
 	Const FILE_INSTRUCTION_ERROR:Int				= 8
 	
-	' Error codes (I32) (1 through 8 are reserved):
-	Const ERROR_NONE:Int					= 0
-	Const ERROR_UNKNOWN:Int					= 1
-	Const ERROR_NO_BEGINNING:Int			= 2
-	Const ERROR_INVALID_INSTRUCTION:Int		= 3
-	Const ERROR_END_OF_STREAM:Int			= 4
-	Const ERROR_INVALID_HEADER:Int			= 5
-	Const ERROR_UNSUPPORTED_VERSION:Int		= 6
+	#Rem
+		This is the lowest possible instruction/operation code position possible for inheriting classes.
+		Each 'IOElement' class has the ability to redefine this.
+		It's best to just offset based on this value (Defined by your super-class).
+	#End
+	
+	Const CUSTOM_INSTRUCTION_LOCATION:Int = 9
+	
+	' Error codes (I32) (1 through 'CUSTOM_ERROR_LOCATION-1' are reserved):
+	Const ERROR_NONE:Int							= 0
+	Const ERROR_UNKNOWN:Int							= 1
+	Const ERROR_NO_BEGINNING:Int					= 2
+	Const ERROR_INVALID_INSTRUCTION:Int				= 3
+	Const ERROR_END_OF_STREAM:Int					= 4
+	Const ERROR_INVALID_HEADER:Int					= 5
+	Const ERROR_UNSUPPORTED_VERSION:Int				= 6
+	Const ERROR_INVALID_INITIALIZATION_PATH:Int		= 7
 	
 	#Rem
-		This is the lowest possible error-code position.
-		Each 'IOElement' class has the ability to redefine this if for some reason that's neccessary.
+		This is the lowest possible error-code position for inheriting classes.
+		Each 'IOElement' class has the ability to redefine this if neccessary.
 		It's best to just offset based on this value (Defined by your super-class).
 	#End
 	
 	Const CUSTOM_ERROR_LOCATION:Int = 9
 	
-	' I/O states (I32, but possibly limited by I8 (See file instructions)) (1 through 8 are reserved):
+	' I/O states (I32, but possibly limited by I8 (See file instructions)) (1 through 'CUSTOM_STATE_LOCATION-1' are reserved):
 	Const PREVIOUS_STATE:Int	= 0
 	Const STATE_NONE:Int		= 1
 	Const STATE_BEGIN:Int		= 2
@@ -131,12 +140,21 @@ Class IOElement Implements InputElement, OutputElement
 	Const STATE_HEADER:Int		= 4
 	Const STATE_BODY:Int		= 5
 	
+	#Rem
+		This is the lowest possible state identifier position possible for inheriting classes.
+		Each 'IOElement' class has the ability to redefine this.
+		It's best to just offset based on this value (Defined by your super-class).
+	#End
+	
+	Const CUSTOM_STATE_LOCATION:Int = 9
+	
 	' Error / Debug messages:
 	#If CONFIG = "debug"
 		Const Error_InvalidInstruction:String = "Invalid or unknown file-instruction detected."
 		Const Error_NoBeginning:String = "Unable to find format entry-point."
 		Const Error_EndOfStream:String = "An unexpected stream-closure has occurred."
 		Const Error_UnsupportedVersion:String = "The detected file-version is incompatible."
+		Const Error_InvalidInitializationPath:String = "Invalid initialization path."
 	#End
 	
 	Const Error_Unknown:String = "An unknown error has occurred."
@@ -513,6 +531,9 @@ Class IOElement Implements InputElement, OutputElement
 				Case ERROR_UNSUPPORTED_VERSION
 					Return Error_UnsupportedVersion
 				
+				Case ERROR_INVALID_INITIALIZATION_PATH
+					Return Error_InvalidInitializationPath
+				
 				Default ' Case ERROR_UNKNOWN
 					' Nothing so far.
 			End Select
@@ -814,7 +835,7 @@ Class IOElement Implements InputElement, OutputElement
 	Field CanSave:Bool
 End
 
-Class StructuredIOElement Extends IOElement
+Class StructuredIOElement Extends IOElement Abstract
 	' Constant variable(s):
 	' Nothing so far.
 	
@@ -910,7 +931,7 @@ End
 ' Generally speaking, this will be either 'IOElement', or 'StructuredIOElement'.
 ' That being said, as long as it follows the designs and ideals of those classes, any class may be used.
 ' Ideally, you'll want the specified class to extend the 'IOElement' class, but for now this is not a requirement.
-Class AyncIOElement<IOElementType> Extends IOElementType
+Class AyncIOElement<IOElementType> Extends IOElementType Abstract
 	' Constant variable(s):
 	
 	' Defaults:
@@ -1188,7 +1209,7 @@ End
 		This class provides a simple framework for "serializers" which intend to have a similar design for both loading and saving data.
 #End
 
-Class StandardIOModel<IOElementType> Extends IOElementType
+Class StandardIOModel<IOElementType> Extends IOElementType Abstract
 	' Constant variable(s):
 	Const FileCreator_Unknown:String = "Unknown"
 	
