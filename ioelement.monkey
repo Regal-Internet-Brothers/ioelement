@@ -205,6 +205,14 @@ Class IOElement Implements InputElement, OutputElement
 	End
 	
 	' I/O related:
+	Function ReadLine:String(S:Stream)
+		Return util.ReadLine(S)
+	End
+	
+	Function WriteLine:Bool(S:Stream, Line:String)
+		Return util.WriteLine(S, Line)
+	End
+	
 	Function ReadString:String(S:Stream)
 		' Local variable(s):
 		Local Encoding:= S.ReadByte()
@@ -1228,6 +1236,10 @@ Class StandardIOModel<IOElementType> Extends IOElementType Abstract
 	End
 	
 	' Methods:
+	Method Save:Bool()
+		Return Super.Save()
+	End
+	
 	Method Save:Bool(Path:String)
 		Return Super.Save(Path)
 	End
