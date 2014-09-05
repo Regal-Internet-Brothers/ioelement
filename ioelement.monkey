@@ -576,6 +576,18 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	End
 	
 	Method ReadInstruction:Int(S:Stream)
+		Return ReadInstruction(S, Self.LargeInstructions)
+	End
+	
+	Method ReadInstruction:Int(S:Stream, LargeInstructions:Bool)
+		' Check for errors:
+		#Rem
+			If (S = Null Or S.Eof()) Then
+				Return -1
+			Endif
+		#End
+		
+		' Read the instruction from the input-stream:
 		If (LargeInstructions) Then
 			Return S.ReadShort()
 		Endif
@@ -583,16 +595,25 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return S.ReadByte()
 	End
 	
-	Method WriteInstruction:Void(S:Stream, F:Int)
-		If (F = ZERO) Then Return
+	Method WriteInstruction:Bool(S:Stream, F:Int, LargeInstructions:Bool)
+		Return WriteInstruction(S, F, Self.LargeInstructions)
+	End
+	
+	Method WriteInstruction:Bool(S:Stream, F:Int, LargeInstructions:Bool)
+		' Check for errors:
 		
+		' Don't bother writing the instruction if it's 'ZERO'.
+		If (F = ZERO) Then Return False
+		
+		' Write the instruction to the output-stream:
 		If (Not LargeInstructions) Then
 			S.WriteByte(F)
 		Else
 			S.WriteShort(F)
 		Endif
 		
-		Return
+		' Return the default response.
+		Return True
 	End
 	
 	' This is just a quick wrapper for 'ReadEntryData':
