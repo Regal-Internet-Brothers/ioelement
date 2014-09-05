@@ -79,7 +79,8 @@ End
 		The base IOElement class (Unstructured) requires several instruction to be implemented via call-back overloads.
 		For a more structured experience, look at the 'StructuredIOElement' class, and/or the 'AsyncIOElement' class.
 #End
-Class IOElement Implements InputElement, OutputElement
+
+Class IOElement Implements InputElement, OutputElement Abstract
 	' Constant variable(s):
 	
 	' Defaults:
@@ -88,13 +89,15 @@ Class IOElement Implements InputElement, OutputElement
 	Const Default_CanLoad:Bool = True
 	Const Default_CanSave:Bool = True
 	
+	Const Default_LargeInstructions:Bool = False ' True
+	
 	' File constants:
 		
 	' General purpose:
 	Const ZERO:Int		= 0
 	Const ONE:Int		= 1
 	
-	' File instructions (0-255) (1 through 'CUSTOM_INSTRUCTION_LOCATION-1' are reserved):
+	' File instructions (0 to (255 Or ???)) (1 through 'CUSTOM_INSTRUCTION_LOCATION-1' are reserved):
 	Const FILE_INSTRUCTION_BEGINFILE:Int			= 1
 	Const FILE_INSTRUCTION_ENDFILE:Int				= 2
 	Const FILE_INSTRUCTION_BEGINHEADER:Int			= 3
@@ -205,14 +208,6 @@ Class IOElement Implements InputElement, OutputElement
 	End
 	
 	' I/O related:
-	Function ReadLine:String(S:Stream)
-		Return util.ReadLine(S)
-	End
-	
-	Function WriteLine:Bool(S:Stream, Line:String)
-		Return util.WriteLine(S, Line)
-	End
-	
 	Function ReadString:String(S:Stream)
 		' Local variable(s):
 		Local Encoding:= S.ReadByte()
@@ -261,6 +256,15 @@ Class IOElement Implements InputElement, OutputElement
 		Endif
 		
 		Return
+	End
+	
+	' Line handling functionality is completely dependent on the 'util' module:
+	Function ReadLine:String(S:Stream)
+		Return util.ReadLine(S)
+	End
+	
+	Function WriteLine:Bool(S:Stream, Line:String, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
+		Return util.WriteLine(S, Line, Encoding)
 	End
 	
 	Function ReadBool:Bool(S:Stream)
@@ -393,10 +397,10 @@ Class IOElement Implements InputElement, OutputElement
 			Endif
 			
 			' Reset the read-flag for file-instructions.
-			GetInstruction = HandleInstruction(S, Instruction, ErrorType, State, ExitResponse, Paused)
+			GetInstruction = HandleInstruction(S, Instruction, ErrorType, State, ExitResponse, Null, Paused)
 			
 			' Check if the exit-response object is set to true:
-			If (ExitResponse = True Or Paused <> Null And Paused = True) Then
+			If (BoolObjectIsTrue(ExitResponse) Or BoolObjectIsTrue(Paused)) Then
 				' Exit the current loop.
 				Exit
 			Endif
@@ -572,13 +576,21 @@ Class IOElement Implements InputElement, OutputElement
 	End
 	
 	Method ReadInstruction:Int(S:Stream)
+		If (LargeInstructions) Then
+			Return S.ReadShort()
+		Endif
+		
 		Return S.ReadByte()
 	End
 	
 	Method WriteInstruction:Void(S:Stream, F:Int)
 		If (F = ZERO) Then Return
 		
-		S.WriteByte(F)
+		If (Not LargeInstructions) Then
+			S.WriteByte(F)
+		Else
+			S.WriteShort(F)
+		Endif
 		
 		Return
 	End
@@ -649,9 +661,10 @@ Class IOElement Implements InputElement, OutputElement
 	
 	Method HandleInstruction:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ExitResponse:BoolObject=Null, ParentData:BoolObject=Null)
 		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
 		Local GetInstruction:Bool = True
 		
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False
 		Endif
 		
@@ -668,24 +681,25 @@ Class IOElement Implements InputElement, OutputElement
 				' this is because the 'begin-file' instruction is actually
 				' a required format-note, and not a full instruction.
 				Case STATE_NONE
-					GetInstruction = Loading_OnGlobalState(S, Instruction, ErrorType, State, ParentData)
+					GetInstruction = Loading_OnGlobalState(S, Instruction, ErrorType, State)
 				
 				' This should be treated as an intermediate point for other states:
 				Case STATE_BEGIN
-					GetInstruction = Loading_OnBeginState(S, Instruction, ErrorType, State, ParentData)
+					GetInstruction = Loading_OnBeginState(S, Instruction, ErrorType, State)
 				
 				Case STATE_HEADER
-					GetInstruction = Loading_OnHeaderState(S, Instruction, ErrorType, State, ParentData)
+					GetInstruction = Loading_OnHeaderState(S, Instruction, ErrorType, State)
 				
 				Case STATE_BODY
-					GetInstruction = Loading_OnBodyState(S, Instruction, ErrorType, State, ParentData)
+					GetInstruction = Loading_OnBodyState(S, Instruction, ErrorType, State)
 				
 				Case STATE_END
-					GetInstruction = Loading_OnEndState(S, Instruction, ErrorType, State, ParentData)
+					GetInstruction = Loading_OnEndState(S, Instruction, ErrorType, State)
 					ExitResponse = True
 				
 				Default
-					ParentData.value = False
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
@@ -695,9 +709,10 @@ Class IOElement Implements InputElement, OutputElement
 	' Callbacks (Implemented):
 	Method Loading_OnGlobalState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
 		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
 		Local GetInstruction:Bool = True
 		
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False
 		Endif
 		
@@ -713,8 +728,8 @@ Class IOElement Implements InputElement, OutputElement
 				Case FILE_INSTRUCTION_BEGINFILE
 					State.value = STATE_BEGIN
 				Default
-					ParentData.value = False
-					'ErrorType.value = ERROR_INVALID_INSTRUCTION
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
@@ -723,9 +738,10 @@ Class IOElement Implements InputElement, OutputElement
 	
 	Method Loading_OnBeginState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
 		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
 		Local GetInstruction:Bool = True
 		
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False
 		Endif
 		
@@ -746,8 +762,8 @@ Class IOElement Implements InputElement, OutputElement
 					State.value = STATE_END
 					GetInstruction = False
 				Default
-					ParentData.value = False
-					'ErrorType.value = ERROR_INVALID_INSTRUCTION
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
@@ -756,9 +772,10 @@ Class IOElement Implements InputElement, OutputElement
 	
 	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
 		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
 		Local GetInstruction:Bool = True
 		
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False
 		Endif
 		
@@ -772,8 +789,8 @@ Class IOElement Implements InputElement, OutputElement
 				Case FILE_INSTRUCTION_ENDHEADER
 					State.value = PREVIOUS_STATE ' STATE_BEGIN
 				Default
-					ParentData.value = False
-					'ErrorType.value = ERROR_INVALID_INSTRUCTION
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
@@ -782,9 +799,10 @@ Class IOElement Implements InputElement, OutputElement
 	
 	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
 		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
 		Local GetInstruction:Bool = True
 		
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False
 		Endif
 		
@@ -800,8 +818,8 @@ Class IOElement Implements InputElement, OutputElement
 					State.value = PREVIOUS_STATE ' STATE_BEGIN
 				
 				Default
-					ParentData.value = False
-					'ErrorType.value = ERROR_INVALID_INSTRUCTION
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
@@ -825,6 +843,21 @@ Class IOElement Implements InputElement, OutputElement
 	' Nothing so far.
 	
 	' Other:
+	Method EmitError:Bool(ErrorTypeObject:IntObject, ErrorCode:Int, ChildResponse:Bool, ParentData:BoolObject=Null)
+		If (ChildResponse) Then
+			If (ParentData <> Null) Then
+				ParentData.value = False
+			Endif
+		Else
+			If (ErrorTypeObject <> Null) Then
+				ErrorTypeObject.value = ErrorCode
+			Endif
+		Endif
+
+		' Return the default response.
+		Return True
+	End
+
 	Method BoolObjectIsTrue:Bool(BO:BoolObject)
 		If (BO = Null) Then Return False
 		
@@ -841,6 +874,9 @@ Class IOElement Implements InputElement, OutputElement
 	' Booleans / Flags:
 	Field CanLoad:Bool
 	Field CanSave:Bool
+	
+	' This isn't usually my style, but:
+	Field LargeInstructions:Bool = Default_LargeInstructions
 End
 
 Class StructuredIOElement Extends IOElement Abstract
@@ -876,12 +912,14 @@ Class StructuredIOElement Extends IOElement Abstract
 	
 	' Main call-backs:
 	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
+		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
+		
 		' Create the parent-data object.
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False ' New BoolObject()
 		Endif
 		
-		' Local variable(s):
 		Local GetInstruction:Bool = Super.Loading_OnHeaderState(S, Instruction, ErrorType, State, ParentData)
 		
 		If (Not ParentData) Then
@@ -899,8 +937,8 @@ Class StructuredIOElement Extends IOElement Abstract
 					Endif
 					
 				Default
-					ParentData.value = False
-					'ErrorType.value = ERROR_INVALID_INSTRUCTION
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
@@ -908,8 +946,11 @@ Class StructuredIOElement Extends IOElement Abstract
 	End
 	
 	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
+		' Local variable(s):
+		Local ChildAvailable:Bool = (ParentData <> Null)
+		
 		' Create the parent-data object.
-		If (ParentData = Null) Then
+		If (Not ChildAvailable) Then
 			ParentData = False ' New BoolObject()
 		Endif
 		
@@ -923,8 +964,8 @@ Class StructuredIOElement Extends IOElement Abstract
 				Case FILE_INSTRUCTION_BEGINBODY
 					GetInstruction = Loading_OnBeginBody(S, ErrorType, State)
 				Default
-					ParentData.value = False
-					'ErrorType.value = ERROR_INVALID_INSTRUCTION
+					' If this point is reached, and we don't have a child method, cause an error.
+					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
 			End Select
 		Endif
 		
