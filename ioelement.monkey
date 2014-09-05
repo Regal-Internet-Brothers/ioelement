@@ -595,7 +595,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return S.ReadByte()
 	End
 	
-	Method WriteInstruction:Bool(S:Stream, F:Int, LargeInstructions:Bool)
+	Method WriteInstruction:Bool(S:Stream, F:Int)
 		Return WriteInstruction(S, F, Self.LargeInstructions)
 	End
 	
