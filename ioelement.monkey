@@ -3,7 +3,7 @@ Strict
 Public
 
 ' Preprocessor related:
-' Nothing so far.
+#IOELEMENT_IMPLEMENTED = True
 
 ' Imports:
 Import util
