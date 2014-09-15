@@ -55,7 +55,7 @@ Interface OutputElement
 	' Nothing so far.
 	
 	' Methods:
-	Method WriteInstruction:Void(S:Stream, F:Int)
+	Method WriteInstruction:Bool(S:Stream, F:Int)
 	
 	Method WriteEntryPlaceholder:Int(S:Stream)
 	Method WriteEntrySize:Int(S:Stream, EntryPosition:Int)
