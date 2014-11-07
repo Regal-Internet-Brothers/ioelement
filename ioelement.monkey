@@ -5,9 +5,15 @@ Public
 ' Preprocessor related:
 #IOELEMENT_IMPLEMENTED = True
 
+#If CONFIG = "debug"
+	'#IOELEMENT_OUTPUT_FILEINFO = True
+	#IOELEMENT_DETAILED_ERRORS = True
+#End
+
 ' Imports:
-Import util
 Import preprocessor.flags
+
+Import util
 Import autostream
 
 Import brl.stream
@@ -152,7 +158,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	Const CUSTOM_STATE_LOCATION:Int = 9
 	
 	' Error / Debug messages:
-	#If CONFIG = "debug"
+	#If IOELEMENT_DETAILED_ERRORS
 		Const Error_InvalidInstruction:String = "Invalid or unknown file-instruction detected."
 		Const Error_NoBeginning:String = "Unable to find format entry-point."
 		Const Error_EndOfStream:String = "An unexpected stream-closure has occurred."
@@ -447,25 +453,20 @@ Class IOElement Implements InputElement, OutputElement Abstract
 			' Check for errors:
 			
 			' If an error has occurred, do the following:
-			#If CONFIG = "debug"
+			#If IOELEMENT_OUTPUT_FILEINFO
 				Local InfoStr:String = "Format-end-position: " + String(SPosition) + " - Start-position: " + String(StartPosition) + " - Offset: " + String(Max(SPosition-StartPosition, 0))
 			#End
 			
 			If (ErrorType <> ERROR_NONE) Then
-				' Local variable(s):
-				Local ErrorStr:String
-				
-				#If CONFIG = "debug"
-					ErrorStr = ErrorString(ErrorType)
-					
-					DebugError(ErrorStr + " - " + InfoStr)
+				#If IOELEMENT_OUTPUT_FILEINFO
+					DebugError(ErrorString(ErrorType) + " | " + InfoStr)
 				#End
 				
 				' Tell the user that loading wasn't successful.
 				Return False
 			Else
 				' If there weren't any errors, output debug information.
-				#If CONFIG = "debug"
+				#If IOELEMENT_OUTPUT_FILEINFO
 					DebugPrint(InfoStr)
 				#End
 			Endif
@@ -529,7 +530,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	
 	' Error handling methods:
 	Method ErrorString:String(ErrorType:Int)
-		#If CONFIG = "debug"
+		#If IOELEMENT_DETAILED_ERRORS
 			Select ErrorType
 				Case ERROR_NO_BEGINNING
 					Return Error_NoBeginning
@@ -654,6 +655,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		
 		WriteEntryData(S)
 		
+		' Return the position of the entry-placeholder.
 		Return Position
 	End
 	
@@ -671,6 +673,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		' Seek back to the position we started at.
 		S.Seek(CurrentPosition)
 		
+		' Return the calculated entry-size.
 		Return EntrySize
 	End
 	
