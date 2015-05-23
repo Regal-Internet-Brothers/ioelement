@@ -49,11 +49,11 @@ Interface InputElement
 	Method Load:Bool(S:Stream, StreamIsCustom:Bool=False, RestoreOnError:Bool=True)
 	
 	' Callbacks:
-	Method Loading_OnGlobalState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-	Method Loading_OnBeginState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-	Method Loading_OnEndState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
+	Method Loading_OnGlobalState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+	Method Loading_OnBeginState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+	Method Loading_OnEndState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
 End
 
 Interface OutputElement
@@ -390,6 +390,9 @@ Class IOElement Implements InputElement, OutputElement Abstract
 				Instruction = ReadInstruction(S)
 			Endif
 			
+			' Reset the read-flag for file-instructions.
+			GetInstruction = HandleInstruction(S, Instruction, ErrorType, State, ExitResponse, Paused)
+			
 			If (State = PREVIOUS_STATE) Then
 				If (Not StateStack.IsEmpty()) Then
 					State = StateStack.Pop()
@@ -401,9 +404,6 @@ Class IOElement Implements InputElement, OutputElement Abstract
 					StateStack.Push(CurrentState)
 				Endif
 			Endif
-			
-			' Reset the read-flag for file-instructions.
-			GetInstruction = HandleInstruction(S, Instruction, ErrorType, State, ExitResponse, Null, Paused)
 			
 			' Check if the exit-response object is set to true:
 			If (BoolObjectIsTrue(ExitResponse) Or BoolObjectIsTrue(Paused)) Then
@@ -677,205 +677,136 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return EntrySize
 	End
 	
-	' Reimplementing either of these commands is completely optional. However, this overload in particular should only be implemented if you want multi-pass loading.
-	Method HandleInstruction:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ExitResponse:BoolObject, ParentData:BoolObject, Pause:BoolObject)
+	' Reimplementing either of these commands is completely optional. However, this
+	' overload in particular should only be implemented if you want multi-pass loading.
+	Method HandleInstruction:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ExitResponse:BoolObject, Pause:BoolObject)
 		' Call the main implementation.
-		Return HandleInstruction(S, Instruction, ErrorType, State, ExitResponse, ParentData)
+		Return HandleInstruction(S, Instruction, ErrorType, State, ExitResponse)
 	End
 	
-	Method HandleInstruction:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ExitResponse:BoolObject=Null, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
-		Local GetInstruction:Bool = True
-		
-		If (Not ChildAvailable) Then
-			ParentData = False
-		Endif
-		
-		If (ExitResponse = Null) Then
-			ExitResponse = False
-		Endif
-		
-		If (Not ParentData) Then
-			' Set the default parent response.
-			ParentData.value = True
+	Method HandleInstruction:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ExitResponse:BoolObject=Null)
+		Select State
+			' The 'none' state is treated slightly differently from other states;
+			' this is because the 'begin-file' instruction is actually
+			' a required format-note, and not a full instruction.
+			Case STATE_NONE
+				Return Loading_OnGlobalState(S, Instruction, ErrorType, State)
 			
-			Select State
-				' The 'none' state is treated slightly differently from other states;
-				' this is because the 'begin-file' instruction is actually
-				' a required format-note, and not a full instruction.
-				Case STATE_NONE
-					GetInstruction = Loading_OnGlobalState(S, Instruction, ErrorType, State)
-				
-				' This should be treated as an intermediate point for other states:
-				Case STATE_BEGIN
-					GetInstruction = Loading_OnBeginState(S, Instruction, ErrorType, State)
-				
-				Case STATE_HEADER
-					GetInstruction = Loading_OnHeaderState(S, Instruction, ErrorType, State)
-				
-				Case STATE_BODY
-					GetInstruction = Loading_OnBodyState(S, Instruction, ErrorType, State)
-				
-				Case STATE_END
-					GetInstruction = Loading_OnEndState(S, Instruction, ErrorType, State)
+			' This should be treated as an intermediate point for other states:
+			Case STATE_BEGIN
+				Return Loading_OnBeginState(S, Instruction, ErrorType, State)
+			Case STATE_HEADER
+				Return Loading_OnHeaderState(S, Instruction, ErrorType, State)
+			Case STATE_BODY
+				Return Loading_OnBodyState(S, Instruction, ErrorType, State)
+			Case STATE_END
+				If (ExitResponse <> Null) Then
 					ExitResponse = True
+				Endif
 				
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
+				Return Loading_OnEndState(S, Instruction, ErrorType, State)
+			Default
+				' If this point is reached, and we don't have a child method, cause an error.
+				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
+		End Select
 		
-		Return GetInstruction
+		' Return the default response.
+		Return False
 	End
 	
 	' Callbacks (Implemented):
-	Method Loading_OnGlobalState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
-		Local GetInstruction:Bool = True
-		
-		If (Not ChildAvailable) Then
-			ParentData = False
-		Endif
-		
-		If (Not ParentData) Then
-			' Set the default parent response.
-			ParentData.value = True
-			
-			' ATTENTION: DO NOT USE THE ARGUMENTS DIRECTLY WHEN SETTING VALUES,
-			' USE THEIR 'value' FIELDS; THAT BEING SAID, READING CAN BE DONE NORMALLY.
-			Select Instruction
-				Case ZERO
-					' Nothing for now.
-				Case FILE_INSTRUCTION_BEGINFILE
-					State.value = STATE_BEGIN
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
-		
-		Return GetInstruction
-	End
-	
-	Method Loading_OnBeginState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
-		Local GetInstruction:Bool = True
-		
-		If (Not ChildAvailable) Then
-			ParentData = False
-		Endif
-		
-		If (Not ParentData) Then
-			' Set the default parent-response.
-			ParentData.value = True
-			
-			Select Instruction
-				Case ZERO
-					' Nothing for now.
-				Case FILE_INSTRUCTION_BEGINHEADER
-					State.value = STATE_HEADER
-					GetInstruction = False
-				Case FILE_INSTRUCTION_BEGINBODY
-					State.value = STATE_BODY
-					GetInstruction = False
-				Case FILE_INSTRUCTION_ENDFILE
-					State.value = STATE_END
-					GetInstruction = False
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
-		
-		Return GetInstruction
-	End
-	
-	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
-		Local GetInstruction:Bool = True
-		
-		If (Not ChildAvailable) Then
-			ParentData = False
-		Endif
-		
-		If (Not ParentData) Then
-			' Set the default parent response.
-			ParentData.value = True
-			
-			Select Instruction
-				Case ZERO
-					' Nothing for now.
-				Case FILE_INSTRUCTION_ENDHEADER
-					State.value = PREVIOUS_STATE ' STATE_BEGIN
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
-		
-		Return GetInstruction
-	End
-	
-	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
-		Local GetInstruction:Bool = True
-		
-		If (Not ChildAvailable) Then
-			ParentData = False
-		Endif
-		
-		If (Not ParentData) Then
-			' Set the default parent response.
-			ParentData.value = True
-			
-			Select Instruction
-				Case ZERO
-					' Nothing so far.
-									
-				Case FILE_INSTRUCTION_ENDBODY
-					State.value = PREVIOUS_STATE ' STATE_BEGIN
+	Method Loading_OnGlobalState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+		' ATTENTION: DO NOT USE THE ARGUMENTS DIRECTLY WHEN SETTING VALUES,
+		' USE THEIR 'value' FIELDS; THAT BEING SAID, READING CAN BE DONE NORMALLY.
+		Select Instruction
+			Case ZERO
+				' Nothing for now.
+			Case FILE_INSTRUCTION_BEGINFILE
+				State.value = STATE_BEGIN
+			Default
+				' If this point is reached, and we don't have a child method, cause an error.
+				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
 				
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
+				Return False
+		End Select
 		
-		Return GetInstruction
+		' Return the default response.
+		Return True
 	End
 	
-	Method Loading_OnEndState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local GetInstruction:Bool = True
+	Method Loading_OnBeginState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+		Select Instruction
+			Case ZERO
+				' Nothing for now.
+			Case FILE_INSTRUCTION_BEGINHEADER
+				State.value = STATE_HEADER
+			Case FILE_INSTRUCTION_BEGINBODY
+				State.value = STATE_BODY
+			Case FILE_INSTRUCTION_ENDFILE
+				State.value = STATE_END
+			Default
+				' If this point is reached, and we don't have a child method, cause an error.
+				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
+		End Select
 		
+		' Return the default response.
+		Return False
+	End
+	
+	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+		Select Instruction
+			Case ZERO
+				' Nothing for now.
+			Case FILE_INSTRUCTION_ENDHEADER
+				State.value = PREVIOUS_STATE ' STATE_BEGIN
+			Default
+				' If this point is reached, and we don't have a child method, cause an error.
+				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
+				
+				Return False
+		End Select
+		
+		' Return the default response.
+		Return True
+	End
+	
+	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+		Select Instruction
+			Case ZERO
+				' Nothing so far.
+								
+			Case FILE_INSTRUCTION_ENDBODY
+				State.value = PREVIOUS_STATE ' STATE_BEGIN
+			
+			Default
+				' If this point is reached, and we don't have a child method, cause an error.
+				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
+				
+				Return False
+		End Select
+		
+		' Return the default response.
+		Return True
+	End
+	
+	Method Loading_OnEndState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
 		If (ErrorType = ERROR_NONE) Then
 			If (State <> STATE_END) Then
 				ErrorType.value = ERROR_INVALID_INSTRUCTION
 			Endif
 		Endif
 		
-		Return GetInstruction
+		' Return the default response.
+		Return True
 	End
 	
 	' Callbacks (Abstract):
 	' Nothing so far.
 	
 	' Other:
-	Method EmitError:Bool(ErrorTypeObject:IntObject, ErrorCode:Int, ChildResponse:Bool, ParentData:BoolObject=Null)
-		If (ChildResponse) Then
-			If (ParentData <> Null) Then
-				ParentData.value = False
-			Endif
-		Else
-			If (ErrorTypeObject <> Null) Then
-				ErrorTypeObject.value = ErrorCode
-			Endif
+	Method EmitError:Bool(ErrorTypeObject:IntObject, ErrorCode:Int)
+		If (ErrorTypeObject <> Null) Then
+			ErrorTypeObject.value = ErrorCode
 		Endif
 
 		' Return the default response.
@@ -883,7 +814,9 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	End
 
 	Method BoolObjectIsTrue:Bool(BO:BoolObject)
-		If (BO = Null) Then Return False
+		If (BO = Null) Then
+			Return False
+		Endif
 		
 		Return BO
 	End
@@ -918,82 +851,51 @@ Class StructuredIOElement Extends IOElement Abstract
 	' Methods:
 	
 	' Call-backs:
-	
-	' Custom call-backs:
 	Method Loading_OnBeginBody:Bool(S:Stream, ErrorType:IntObject, State:IntObject)
-		' Implement this as you please.
+		' Implement this as you see fit.
 		
 		' Return the default response.
 		Return True
 	End
 	
 	Method Loading_OnBeginHeader:Bool(S:Stream, ErrorType:IntObject, State:IntObject)
-		' Implement this as you please.
+		' Implement this as you see fit.
 		
 		' Return the default response.
 		Return True
 	End
 	
 	' Main call-backs:
-	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
-		
-		' Create the parent-data object.
-		If (Not ChildAvailable) Then
-			ParentData = False ' New BoolObject()
-		Endif
-		
-		Local GetInstruction:Bool = Super.Loading_OnHeaderState(S, Instruction, ErrorType, State, ParentData)
-		
-		If (Not ParentData) Then
-			ParentData.value = True
-			
-			Select Instruction
-				Case ZERO
-					' Nothing for now.
-				
-				Case FILE_INSTRUCTION_BEGINHEADER
-					If (Not Loading_OnBeginHeader(S, ErrorType, State)) Then
-						ErrorType.value = ERROR_INVALID_HEADER
-						
-						Return False
-					Endif
+	Method Loading_OnHeaderState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+		Select Instruction
+			Case ZERO
+				' Nothing for now.
+			Case FILE_INSTRUCTION_BEGINHEADER
+				If (Not Loading_OnBeginHeader(S, ErrorType, State)) Then
+					EmitError(ErrorType, ERROR_INVALID_HEADER)
 					
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
+					Return False
+				Endif
+			Default
+				' If this point is reached, call the super-class's implementation.
+				Return Super.Loading_OnHeaderState(S, Instruction, ErrorType, State)
+		End Select
 		
-		Return GetInstruction
+		' Return the default response.
+		Return True
 	End
 	
-	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject, ParentData:BoolObject=Null)
-		' Local variable(s):
-		Local ChildAvailable:Bool = (ParentData <> Null)
+	Method Loading_OnBodyState:Bool(S:Stream, Instruction:Int, ErrorType:IntObject, State:IntObject)
+		Select Instruction
+			Case FILE_INSTRUCTION_BEGINBODY
+				Return Loading_OnBeginBody(S, ErrorType, State)
+			Default
+				' If this point is reached, call the super-class's implementation.
+				Return Super.Loading_OnBodyState(S, Instruction, ErrorType, State)
+		End Select
 		
-		' Create the parent-data object.
-		If (Not ChildAvailable) Then
-			ParentData = False ' New BoolObject()
-		Endif
-		
-		' Local variable(s):
-		Local GetInstruction:Bool = Super.Loading_OnBodyState(S, Instruction, ErrorType, State, ParentData)
-		
-		If (Not ParentData) Then
-			ParentData.value = True
-			
-			Select Instruction
-				Case FILE_INSTRUCTION_BEGINBODY
-					GetInstruction = Loading_OnBeginBody(S, ErrorType, State)
-				Default
-					' If this point is reached, and we don't have a child method, cause an error.
-					EmitError(ErrorType, ERROR_INVALID_INSTRUCTION, ChildAvailable, ParentData)
-			End Select
-		Endif
-		
-		Return GetInstruction
+		' Return the default response.
+		Return True
 	End
 End
 
