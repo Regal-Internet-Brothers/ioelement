@@ -245,13 +245,13 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return ""
 	End
 	
-	Function WriteOptString:Void(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
+	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
 		WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
 		
 		Return
 	End
 	
-	Function WriteOptString:Void(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
+	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
 		' Make sure we have a string to begin with.
 		Toggle = Toggle And (Str.Length() > 0)
 		
@@ -259,9 +259,11 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		
 		If (Toggle) Then
 			WriteString(S, Str, Encoding)
+			
+			Return True
 		Endif
 		
-		Return
+		Return False
 	End
 	
 	' Line handling functionality is completely dependent on the 'util' module:
@@ -706,7 +708,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 				
 				Return Loading_OnEndState(S, Instruction, ErrorType, State)
 			Default
-				' If this point is reached, and we don't have a child method, cause an error.
+				' If this point was reached, cause an error.
 				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
 		End Select
 		
@@ -724,7 +726,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 			Case FILE_INSTRUCTION_BEGINFILE
 				State.value = STATE_BEGIN
 			Default
-				' If this point is reached, and we don't have a child method, cause an error.
+				' If this point was reached, cause an error.
 				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
 				
 				Return False
@@ -745,7 +747,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 			Case FILE_INSTRUCTION_ENDFILE
 				State.value = STATE_END
 			Default
-				' If this point is reached, and we don't have a child method, cause an error.
+				' If this point was reached, cause an error.
 				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
 		End Select
 		
@@ -760,7 +762,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 			Case FILE_INSTRUCTION_ENDHEADER
 				State.value = PREVIOUS_STATE ' STATE_BEGIN
 			Default
-				' If this point is reached, and we don't have a child method, cause an error.
+				' If this point was reached, cause an error.
 				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
 				
 				Return False
@@ -779,7 +781,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 				State.value = PREVIOUS_STATE ' STATE_BEGIN
 			
 			Default
-				' If this point is reached, and we don't have a child method, cause an error.
+				' If this point was reached, cause an error.
 				EmitError(ErrorType, ERROR_INVALID_INSTRUCTION)
 				
 				Return False
