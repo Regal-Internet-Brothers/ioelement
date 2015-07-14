@@ -246,9 +246,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	End
 	
 	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
-		WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
-		
-		Return
+		Return WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
 	End
 	
 	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
