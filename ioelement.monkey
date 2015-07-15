@@ -245,11 +245,13 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return ""
 	End
 	
-	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
-		Return WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
+	Function WriteOptString:Void(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
+		WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
+		
+		Return
 	End
 	
-	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
+	Function WriteOptString:Void(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
 		' Make sure we have a string to begin with.
 		Toggle = Toggle And (Str.Length() > 0)
 		
@@ -257,11 +259,9 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		
 		If (Toggle) Then
 			WriteString(S, Str, Encoding)
-			
-			Return True
 		Endif
 		
-		Return False
+		Return
 	End
 	
 	' Line handling functionality is completely dependent on the 'util' module:
@@ -440,6 +440,8 @@ Class IOElement Implements InputElement, OutputElement Abstract
 					
 					If (Paused <> Null) Then
 						Paused = False
+						
+						PauseResponse = False
 					Endif
 				Endif
 			Endif
@@ -523,7 +525,7 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	End
 	
 	Method FinishSaving:Void(S:Stream, StreamIsCustom:Bool=False)
-		FinishLoading(S, StreamIsCustom)
+		CloseAutoStream(S, StreamIsCustom)
 		
 		Return
 	End
@@ -1004,30 +1006,22 @@ Class AyncIOElement<IOElementType> Extends IOElementType Abstract
 		Return Save(IO_Stream, IO_StreamIsCustom, IO_RestoreOnError)
 	End
 	
-	' The value returned from this command indicates its effect.
-	' If the return value is true, more advancement must be done.
-	' If the return value is false, no more advancement can be done.
-	' This could also mean that some form of error has occurred, to check for errors, check the 'ERROR' field.
-	Method Advance:Bool()
-		' Local variable(s):
-		Local Response:Bool = False
+	' Call-backs:
+	
+	' These call-backs may be defined as you see fit:
+	
+	' This is called when loading has finished.
+	Method OnLoadingComplete:Void()
+		' Blank implementation; override as you see fit.
 		
-		If (Loading) Then
-			Response = Load()
-		Elseif (Saving) Then
-			Response = Save()
-		Endif
+		Return
+	End
+	
+	' This is called when saving has finished.
+	Method OnSavingComplete:Void()
+		' Blank implementation; override as you see fit.
 		
-		If (Response) Then
-			If (Loading Or Saving) Then
-				Response = True
-			Else
-				Response = False
-			Endif
-		Endif
-		
-		' Return the calculated response.
-		Return Response
+		Return
 	End
 	
 	' I/O methods:
@@ -1124,6 +1118,8 @@ Class AyncIOElement<IOElementType> Extends IOElementType Abstract
 			FlushIO()
 		Endif
 		
+		OnLoadingComplete()
+		
 		Return
 	End
 	
@@ -1146,12 +1142,41 @@ Class AyncIOElement<IOElementType> Extends IOElementType Abstract
 			FlushIO()
 		Endif
 		
+		OnSavingComplete()
+		
 		Return
 	End
 	
 	Public
 	
 	' Properties:
+	
+	' The value returned from this command indicates its effect.
+	' If the return-value is 'True', more advancement must be done.
+	' If the return-value is 'False', no more advancement can be done.
+	' This could also mean that some form of error has occurred, to check for errors, check the 'ERROR' field.
+	Method Advance:Bool() Property
+		' Local variable(s):
+		Local Response:Bool = False
+		
+		If (Loading) Then
+			Response = Load()
+		Elseif (Saving) Then
+			Response = Save()
+		Endif
+		
+		If (Response) Then
+			If (Loading Or Saving) Then
+				Response = True
+			Else
+				Response = False
+			Endif
+		Endif
+		
+		' Return the calculated response.
+		Return Response
+	End
+	
 	Method CanPause:Bool() Property Final
 		Return True
 	End
