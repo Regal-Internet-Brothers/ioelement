@@ -1095,8 +1095,8 @@ Class AyncIOElement<IOElementType> Extends IOElementType Abstract
 		Return IO_ErrorType
 	End
 	
-	' Methods (Private):
-	Private
+	' Methods (Protected):
+	Protected
 	
 	' Saving / Loading:
 	Method FinishLoading:Void(S:Stream, StreamIsCustom:Bool=False)
