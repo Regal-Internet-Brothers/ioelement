@@ -190,8 +190,8 @@ Class IOElement Implements InputElement, OutputElement Abstract
 			Case CHARACTER_ENCODING_UTF8
 				Return CHARACTER_ENCODING_UTF8_STR
 			#Rem
-			Case CHARACTER_ENCODING_DEFAULT
-				Return CHARACTER_ENCODING_DEFAULT_STR
+				Case CHARACTER_ENCODING_DEFAULT
+					Return CHARACTER_ENCODING_DEFAULT_STR
 			#End
 		End Select
 		
@@ -205,8 +205,8 @@ Class IOElement Implements InputElement, OutputElement Abstract
 			Case CHARACTER_ENCODING_UTF8_STR
 				Return CHARACTER_ENCODING_UTF8
 			#Rem
-			Default 'Case CHARACTER_ENCODING_DEFAULT_STR
-				Return CHARACTER_ENCODING_DEFAULT
+				Default ' Case CHARACTER_ENCODING_DEFAULT_STR
+					Return CHARACTER_ENCODING_DEFAULT
 			#End
 		End Select
 		
@@ -1242,6 +1242,10 @@ Class StandardIOModel<IOElementType> Extends IOElementType Abstract
 			Return False
 		Endif
 		
+		' Before anything else, reset this class's meta-data:
+		FormatVersion = StandardIOModel_FileVersion
+		Creator = StandardIOModel_FileCreator
+		
 		' Local variable(s):
 		Local StartPosition:= S.Position
 		Local ErrorOccurred:Bool = False
@@ -1358,9 +1362,9 @@ Class StandardIOModel<IOElementType> Extends IOElementType Abstract
 			Return False
 		Endif
 		
-		Write_FormatVersion(S, StandardIOModel_FileVersion)
+		Write_FormatVersion(S, FormatVersion)
 		WriteOptString(S, StandardIOModel_FileFormatText)
-		WriteString(S, StandardIOModel_FileCreator)
+		WriteString(S, Creator)
 		
 		' Return the default response.
 		Return True
@@ -1406,10 +1410,29 @@ Class StandardIOModel<IOElementType> Extends IOElementType Abstract
 		Return (FVersion <= StandardIOModel_FileVersion)
 	End
 	
-	' Properties (Implemented):
-	' Nothing so far.
+	' Properties (Public):
 	
-	' Properties (Abstract):
+	' Implemented:
+	
+	' The current file/format version of this element.
+	' This gets reset to 'StandardIOModel_FileVersion' when saving.
+	Method FormatVersion:Int() Property
+		Return Self._FormatVersion
+	End
+	
+	' The file-creator-string of this element.
+	' This gets reset to 'StandardIOModel_FileCreator' when saving.
+	Method Creator:String() Property
+		Return Self._Creator
+	End
+	
+	' Following the "Standard file-contant template", this should return 'FILE_CREATOR'.
+	' Reimplementing this property is optional, and should only be done when an actual creator-string is present.
+	Method StandardIOModel_FileCreator:String() Property
+		Return FileCreator_Unknown
+	End
+	
+	' Abstract:
 	
 	' Following the "Standard file-constant template", this should return 'FILE_VERSION'.
 	' In addition, you may implement this as 'Final', however, that is not always ideal, and is not a requirement.
@@ -1418,13 +1441,31 @@ Class StandardIOModel<IOElementType> Extends IOElementType Abstract
 	' Following the "Standard file-constant template", this should return 'FILE_FORMAT_TEXT'.
 	Method StandardIOModel_FileFormatText:String() Property Abstract
 	
-	' Following the "Standard file-contant template", this should return 'FILE_CREATOR'.
-	' Reimplementing this property is purely optional, and should only be done when an actual creator-string is present.
-	Method StandardIOModel_FileCreator:String() Property
-		Return FileCreator_Unknown
+	' Properties (Protected):
+	Protected
+	
+	Method FormatVersion:Void(Value:Int) Property
+		Self._FormatVersion = Value
+		
+		Return
 	End
 	
-	' Fields:
-	Field FormatVersion:Int
-	Field Creator:String
+	Method Creator:Void(Value:String) Property
+		Self._Creator = Value
+		
+		Return
+	End
+	
+	Public
+	
+	' Fields (Public):
+	' Nothing so far.
+	
+	' Fields (Protected):
+	Protected
+	
+	Field _FormatVersion:Int
+	Field _Creator:String
+	
+	Public
 End
