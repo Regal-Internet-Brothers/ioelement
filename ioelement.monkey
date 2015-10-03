@@ -245,13 +245,11 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return ""
 	End
 	
-	Function WriteOptString:Void(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
-		WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
-		
-		Return
+	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool, Encoding:Int)
+		Return WriteOptString(S, Str, Toggle, GetCharacterEncoding(Encoding))
 	End
 	
-	Function WriteOptString:Void(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
+	Function WriteOptString:Bool(S:Stream, Str:String, Toggle:Bool=True, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
 		' Make sure we have a string to begin with.
 		Toggle = Toggle And (Str.Length() > 0)
 		
@@ -259,9 +257,20 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		
 		If (Toggle) Then
 			WriteString(S, Str, Encoding)
+			
+			Return True
 		Endif
 		
-		Return
+		' Return the default response.
+		Return False
+	End
+	
+	Function WriteOptString:Bool(S:Stream, Str:String, Encoding:Int)
+		Return WriteOptString(S, Str, True, Encoding)
+	End
+	
+	Function WriteOptString:Bool(S:Stream, Str:String, Encoding:String)
+		Return WriteOptString(S, Str, True, Encoding)
 	End
 	
 	' Line handling functionality is completely dependent on the 'util' module:
