@@ -11,10 +11,10 @@ Public
 #End
 
 ' Imports:
-Import preprocessor.flags
+Import regal.preprocessor.flags
 
-Import util
-Import autostream
+Import regal.util
+Import regal.autostream
 
 Import brl.stream
 'Import brl.databuffer

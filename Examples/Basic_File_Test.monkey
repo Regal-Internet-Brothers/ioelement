@@ -3,7 +3,7 @@ Strict
 Public
 
 ' Imports:
-Import ioelement
+Import regal.ioelement
 
 ' Functions:
 Function Main:Int()
