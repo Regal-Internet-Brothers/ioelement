@@ -275,11 +275,11 @@ Class IOElement Implements InputElement, OutputElement Abstract
 	
 	' Line handling functionality is completely dependent on the 'util' module:
 	Function ReadLine:String(S:Stream)
-		Return util.ReadLine(S)
+		Return S.ReadLine()
 	End
 	
-	Function WriteLine:Bool(S:Stream, Line:String, Encoding:String=CHARACTER_ENCODING_DEFAULT_STR)
-		Return util.WriteLine(S, Line, Encoding)
+	Function WriteLine:Bool(S:Stream, Line:String)
+		Return S.WriteLine(Line)
 	End
 	
 	Function ReadBool:Bool(S:Stream)
