@@ -278,8 +278,10 @@ Class IOElement Implements InputElement, OutputElement Abstract
 		Return S.ReadLine()
 	End
 	
-	Function WriteLine:Bool(S:Stream, Line:String)
-		Return S.WriteLine(Line)
+	Function WriteLine:Void(S:Stream, Line:String)
+		S.WriteLine(Line)
+		
+		Return
 	End
 	
 	Function ReadBool:Bool(S:Stream)
